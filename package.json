@@ -1,0 +1,32 @@
+{
+  "name": "property-wealth-server",
+  "version": "1.0.0",
+  "description": "Backend server for Build Wealth Through Property - Email and Stripe payment services",
+  "keywords": [
+    "email",
+    "stripe",
+    "payments",
+    "vercel"
+  ],
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js",
+    "vercel-dev": "vercel dev"
+  },
+  "dependencies": {
+    "@google-analytics/data": "^4.12.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "firebase-admin": "^13.6.1",
+    "nodemailer": "^6.9.7",
+    "stripe": "^14.10.0"
+  },
+  "devDependencies": {
+    "vercel": "^34.0.0"
+  }
+}
