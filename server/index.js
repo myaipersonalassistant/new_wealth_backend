@@ -1027,17 +1027,27 @@ app.post('/api/subscribe-email', async (req, res) => {
     const db = getFirestoreDb();
     const subscriptionsRef = db.collection('email_subscriptions');
 
-    // Check if email already exists (using Admin SDK - bypasses security rules)
+    // Check if email already exists in email_subscriptions (using Admin SDK - bypasses security rules)
     const existingQuery = await subscriptionsRef
       .where('email', '==', normalizedEmail)
       .limit(1)
       .get();
 
+    // For free-chapter: also treat user_profiles as "already known" - don't add duplicate to email_subscriptions
+    let inUserProfiles = false;
+    if (source === 'free-chapter' && existingQuery.empty) {
+      const profilesSnap = await db.collection('user_profiles')
+        .where('email', '==', normalizedEmail)
+        .limit(1)
+        .get();
+      inUserProfiles = !profilesSnap.empty;
+    }
+
     if (!existingQuery.empty) {
       const existingDoc = existingQuery.docs[0];
       const existingData = existingDoc.data();
 
-      // If claiming starter-pack, mark it on existing subscription
+      // If claiming starter-pack, mark it on existing subscription and send welcome email
       if (source === 'starter-pack' && !existingData.starter_pack_claimed) {
         await existingDoc.ref.update({
           starter_pack_claimed: true,
@@ -1045,11 +1055,44 @@ app.post('/api/subscribe-email', async (req, res) => {
           ...(firstName && { firstName: firstName.trim() }),
           ...(phone && { phone: phone.trim() }),
         });
-        console.log(`✅ Starter pack claimed for existing subscriber: ${normalizedEmail}`);
+        const dashboardUrl = process.env.STARTER_PACK_DOWNLOAD_URL ||
+          `${FRONTEND_URL}/auth?redirect=${encodeURIComponent('/dashboard?tab=starter-pack')}`;
+        try {
+          await sendEmail({
+            to: normalizedEmail,
+            template: 'starterPackWelcome',
+            templateData: {
+              name: firstName?.trim() || existingData.firstName || normalizedEmail.split('@')[0],
+              downloadUrl: dashboardUrl,
+            },
+          });
+          console.log(`✅ Starter Pack welcome email sent to existing subscriber: ${normalizedEmail}`);
+        } catch (emailErr) {
+          console.error('Failed to send starter pack email to existing subscriber:', emailErr.message);
+        }
         return res.json({ success: true, message: 'Successfully subscribed!' });
       }
       if (source === 'starter-pack' && existingData.starter_pack_claimed) {
         return res.json({ success: true, message: 'You already have access!' });
+      }
+
+      // Free chapter: re-send the PDF link email (in case they lost it)
+      if (source === 'free-chapter') {
+        const pdfUrl = process.env.FREE_CHAPTER_PDF_URL || `${FRONTEND_URL}/free-chapter`;
+        try {
+          await sendEmail({
+            to: normalizedEmail,
+            template: 'freeChapterWelcome',
+            templateData: {
+              name: firstName?.trim() || existingData.firstName || normalizedEmail.split('@')[0],
+              pdfUrl,
+            },
+          });
+          console.log(`✅ Free chapter email re-sent to ${normalizedEmail}`);
+        } catch (emailErr) {
+          console.error('Failed to re-send free chapter email:', emailErr.message);
+        }
+        return res.json({ success: true, message: 'Check your inbox for the download link!', pdfUrl });
       }
       
       if (existingData.status === 'unsubscribed') {
@@ -1064,6 +1107,25 @@ app.post('/api/subscribe-email', async (req, res) => {
         success: true, 
         message: 'You are already subscribed!' 
       });
+    }
+
+    // Free-chapter: email in user_profiles but not email_subscriptions - don't add duplicate, still give access
+    if (source === 'free-chapter' && inUserProfiles) {
+      const pdfUrl = process.env.FREE_CHAPTER_PDF_URL || `${FRONTEND_URL}/free-chapter`;
+      try {
+        await sendEmail({
+          to: normalizedEmail,
+          template: 'freeChapterWelcome',
+          templateData: {
+            name: firstName?.trim() || normalizedEmail.split('@')[0],
+            pdfUrl,
+          },
+        });
+        console.log(`✅ Free chapter email sent to existing user_profiles: ${normalizedEmail}`);
+      } catch (emailErr) {
+        console.error('Failed to send free chapter email to user_profiles:', emailErr.message);
+      }
+      return res.json({ success: true, message: 'Check your inbox for the download link!', pdfUrl });
     }
 
     // Create new subscription
@@ -1108,6 +1170,25 @@ app.post('/api/subscribe-email', async (req, res) => {
         console.error('Failed to send starter pack email (subscription still saved):', emailErr.message);
         // Don't fail the request — subscription was created successfully
       }
+    }
+
+    // Send free chapter email with PDF link
+    if (source === 'free-chapter') {
+      const pdfUrl = process.env.FREE_CHAPTER_PDF_URL || `${FRONTEND_URL}/free-chapter`;
+      try {
+        await sendEmail({
+          to: normalizedEmail,
+          template: 'freeChapterWelcome',
+          templateData: {
+            name: firstName?.trim() || normalizedEmail.split('@')[0],
+            pdfUrl,
+          },
+        });
+        console.log(`✅ Free chapter email sent to ${normalizedEmail}`);
+      } catch (emailErr) {
+        console.error('Failed to send free chapter email (subscription still saved):', emailErr.message);
+      }
+      return res.json({ success: true, message: 'Successfully subscribed! Check your inbox.', pdfUrl });
     }
 
     res.json({ 
