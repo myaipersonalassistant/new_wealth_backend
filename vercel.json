@@ -24,6 +24,10 @@
       "destination": "/api/blob-upload"
     },
     {
+      "source": "/api/subscribe-email",
+      "destination": "/api/subscribe-email"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/catchall?path=:path*"
     }
