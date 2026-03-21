@@ -1,12 +1,6 @@
-﻿{
-  "version": 2,
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "npm install && cd server && npm install",
-  "builds": [
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
-    }
-  ],
   "rewrites": [
     {
       "source": "/api/stripe-webhook",
@@ -20,6 +14,5 @@
       "source": "/api/:path*",
       "destination": "/api/catchall?path=:path*"
     }
-  ],
-  "env": { "NODE_ENV": "production" }
+  ]
 }
