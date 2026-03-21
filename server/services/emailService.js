@@ -78,6 +78,96 @@ const templates = {
     text: `Welcome to Build Wealth Through Property!\n\nHi ${data.name || 'there'},\n\nThank you for joining Build Wealth Through Property. We're excited to help you on your property investment journey!\n\nGet started by exploring our resources and courses.`
   }),
 
+  newUserWelcome: (data) => {
+    const dashboardUrl = data.dashboardUrl || process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/dashboard` : 'https://new-wealth-frontend.vercel.app/dashboard';
+    const name = data.name || 'there';
+    const firstName = name.split(' ')[0] || name;
+    return {
+      subject: `Welcome aboard, ${firstName}! Your property journey starts here 🏠`,
+      html: `
+      <!DOCTYPE html>
+      <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; line-height: 1.7; color: #1e293b; margin: 0; padding: 0; background: #f8fafc; }
+            .container { max-width: 560px; margin: 0 auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+            .hero { background: linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%); color: white; padding: 48px 32px; text-align: center; position: relative; }
+            .hero::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 24px; background: #fff; border-radius: 24px 24px 0 0; }
+            .hero h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+            .hero .wave { font-size: 48px; margin-bottom: 8px; display: block; }
+            .content { padding: 40px 32px; }
+            .content p { margin: 0 0 18px; }
+            .quote { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-left: 4px solid #f59e0b; padding: 20px 24px; margin: 28px 0; border-radius: 0 12px 12px 0; font-style: italic; color: #78350f; }
+            .steps { margin: 28px 0; padding: 0; list-style: none; }
+            .steps li { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 20px; padding: 16px; background: #f8fafc; border-radius: 12px; }
+            .steps li .num { width: 32px; height: 32px; background: #f59e0b; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+            .steps li strong { display: block; margin-bottom: 4px; color: #0f172a; }
+            .steps li span { color: #64748b; font-size: 14px; }
+            .cta { text-align: center; margin: 36px 0 24px; }
+            .button { display: inline-block; padding: 16px 32px; background: linear-gradient(135deg, #f59e0b, #d97706); color: white !important; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 16px; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4); transition: transform 0.2s; }
+            .button:hover { transform: translateY(-2px); }
+            .signature { margin-top: 32px; }
+            .signature strong { display: block; color: #0f172a; }
+            .signature span { color: #64748b; font-size: 14px; }
+            .footer { background: #f1f5f9; padding: 24px 32px; font-size: 12px; color: #64748b; text-align: center; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="hero">
+              <span class="wave">👋</span>
+              <h1>Welcome, ${firstName}!</h1>
+              <p style="margin: 12px 0 0; opacity: 0.95; font-size: 16px;">You've just taken the first step toward building lasting wealth through property.</p>
+            </div>
+            <div class="content">
+              <p>Hi ${name},</p>
+              <p>Thanks for creating your account. Whether you're exploring your first investment or looking to grow an existing portfolio, you're in the right place.</p>
+              <div class="quote">"The best time to plant a tree was 20 years ago. The second best time is now." — Your property journey starts the moment you decide to act.</div>
+              <p><strong>Here's how to get the most from your dashboard:</strong></p>
+              <ul class="steps">
+                <li>
+                  <span class="num">1</span>
+                  <div>
+                    <strong>Explore the Starter Pack</strong>
+                    <span>Free videos, guides, and spreadsheets to help you think like an investor.</span>
+                  </div>
+                </li>
+                <li>
+                  <span class="num">2</span>
+                  <div>
+                    <strong>Check out the courses</strong>
+                    <span>Structured learning from foundations to advanced strategies.</span>
+                  </div>
+                </li>
+                <li>
+                  <span class="num">3</span>
+                  <div>
+                    <strong>Run the numbers</strong>
+                    <span>Use our calculator to model deals and see real projections.</span>
+                  </div>
+                </li>
+              </ul>
+              <div class="cta">
+                <a href="${dashboardUrl}" class="button">Open My Dashboard →</a>
+              </div>
+              <div class="signature">
+                <strong>Chris Ifonlaja</strong>
+                <span>Author, Build Wealth Through Property</span>
+              </div>
+            </div>
+            <div class="footer">
+              <p>Build Wealth Through Property · You're receiving this because you created an account.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+      `,
+      text: `Welcome, ${firstName}!\n\nHi ${name},\n\nThanks for creating your account. Whether you're exploring your first investment or looking to grow an existing portfolio, you're in the right place.\n\nHere's how to get started:\n1. Explore the Starter Pack - Free videos, guides, and spreadsheets.\n2. Check out the courses - Structured learning from foundations to advanced strategies.\n3. Run the numbers - Use our calculator to model deals.\n\nOpen your dashboard: ${dashboardUrl}\n\n— Chris Ifonlaja\nAuthor, Build Wealth Through Property`
+    };
+  },
+
   freeChapterWelcome: (data) => {
     const pdfUrl = data.pdfUrl || process.env.FREE_CHAPTER_PDF_URL || 'https://buildwealththroughproperty.com';
     return {

@@ -28,6 +28,10 @@
       "destination": "/api/subscribe-email"
     },
     {
+      "source": "/api/send-welcome-email",
+      "destination": "/api/send-welcome-email"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/catchall?path=:path*"
     }

@@ -85,6 +85,27 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
 
+// Welcome email for new signups (called by frontend after first-time signup)
+app.post('/api/send-welcome-email', async (req, res) => {
+  try {
+    const { email, fullName } = req.body;
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ success: false, error: 'Valid email is required' });
+    }
+    const name = (fullName || email.split('@')[0] || 'there').trim();
+    const dashboardUrl = FRONTEND_URL ? `${FRONTEND_URL}/dashboard` : 'https://new-wealth-frontend.vercel.app/dashboard';
+    await sendEmail({
+      to: email.trim().toLowerCase(),
+      template: 'newUserWelcome',
+      templateData: { name, dashboardUrl },
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error sending welcome email:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Email endpoints
 app.post('/api/send-email', async (req, res) => {
   try {

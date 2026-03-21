@@ -1,8 +1,10 @@
 /**
- * Dedicated handler for /api/subscribe-email - bypasses catchall for reliable CORS.
- * Delegates to the Express app (same as catchall) so we use the proven working code path.
+ * Standalone handler for /api/subscribe-email.
+ * Does NOT load the full Express app - only the subscribe service.
+ * Uses req.body directly (Vercel pre-parses it) to avoid body parsing conflicts.
+ * Always returns JSON so the client never gets Vercel's "A server error occurred" HTML.
  */
-import app from '../server/index.js';
+import { handleSubscribeEmail } from '../server/services/subscribeEmailService.js';
 
 const ALLOWED_ORIGINS = [
   process.env.FRONTEND_URL,
@@ -18,7 +20,7 @@ function isOriginAllowed(origin) {
 }
 
 function setCorsHeaders(req, res) {
-  const origin = req.headers.origin || req.headers.Origin;
+  const origin = req.headers?.origin || req.headers?.Origin;
   if (origin && isOriginAllowed(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
@@ -27,7 +29,12 @@ function setCorsHeaders(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
-export default function handler(req, res) {
+function sendJson(res, status, data) {
+  res.setHeader('Content-Type', 'application/json');
+  res.status(status).end(JSON.stringify(data));
+}
+
+export default async function handler(req, res) {
   setCorsHeaders(req, res);
 
   if (req.method === 'OPTIONS') {
@@ -35,18 +42,31 @@ export default function handler(req, res) {
     return;
   }
 
-  // Ensure Express receives the correct path
-  req.url = '/api/subscribe-email' + (req.url && req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '');
+  if (req.method !== 'POST') {
+    sendJson(res, 405, { success: false, error: 'Method not allowed' });
+    return;
+  }
 
-  return new Promise((resolve, reject) => {
-    const onEnd = () => resolve();
-    res.on('finish', onEnd);
-    res.on('close', onEnd);
-    res.on('error', reject);
-    try {
-      app(req, res);
-    } catch (err) {
-      reject(err);
-    }
-  });
+  try {
+    // Vercel pre-parses JSON into req.body - use it directly (don't pass through Express)
+    const body = req.body || {};
+    const { email, source, referrer, firstName, phone } = body;
+    const referrerValue = referrer || req.headers?.referer || req.headers?.origin;
+
+    const result = await handleSubscribeEmail({
+      email,
+      source,
+      referrer: referrerValue,
+      firstName,
+      phone,
+    });
+
+    sendJson(res, result.statusCode, result.body);
+  } catch (error) {
+    console.error('Subscribe email error:', error);
+    sendJson(res, 500, {
+      success: false,
+      error: error.message || 'Failed to subscribe. Please try again.',
+    });
+  }
 }
