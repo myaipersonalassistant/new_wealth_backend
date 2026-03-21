@@ -57,10 +57,23 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
+// Allowed CORS origins (set FRONTEND_URL in Vercel env to add more)
+const ALLOWED_ORIGINS = [
+  FRONTEND_URL,
+  'https://new-wealth-frontend.vercel.app',
+  /^https:\/\/new-wealth-frontend(-[\w-]+)?\.vercel\.app$/, // preview deployments
+].filter(Boolean);
+
 // Middleware
 app.use(cors({
-  origin: FRONTEND_URL,
-  credentials: true
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true); // Same-origin or non-browser
+    const allowed = ALLOWED_ORIGINS.some((o) =>
+      typeof o === 'string' ? o === origin : o.test(origin)
+    );
+    cb(null, allowed ? origin : false);
+  },
+  credentials: true,
 }));
 app.use(express.json());
 // For Stripe webhooks - must be raw body
