@@ -53,6 +53,7 @@ import {
 import { getAnalyticsOverview } from './services/analyticsService.js';
 import { getGA4DashboardReport } from './services/ga4AnalyticsService.js';
 import { handleSubscribeEmail } from './services/subscribeEmailService.js';
+import { notifyAdminOfSuccessfulPayment } from './services/paymentAdminNotifyService.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -331,6 +332,8 @@ app.post('/api/stripe-webhook', async (req, res) => {
               }
             }
             if (userId) {
+              const course = await getCourseSetting(courseId);
+              const courseTitle = course?.title || 'Course';
               const alreadyEnrolled = await isCourseEnrolled(userId, courseId);
               if (!alreadyEnrolled) {
                 await createCourseEnrollment({
@@ -341,8 +344,6 @@ app.post('/api/stripe-webhook', async (req, res) => {
                   stripeSessionId: session.id,
                 });
                 console.log('Course enrollment created:', userId, courseId);
-                const course = await getCourseSetting(courseId);
-                const courseTitle = course?.title || 'Course';
                 try {
                   await sendEmail({
                     to: customerEmail,
@@ -363,8 +364,30 @@ app.post('/api/stripe-webhook', async (req, res) => {
                   console.error('Course enrollment email error:', emailError);
                 }
               }
+              try {
+                await notifyAdminOfSuccessfulPayment({
+                  session,
+                  productType: 'course',
+                  courseId,
+                  courseTitle,
+                  userId,
+                });
+              } catch (adminErr) {
+                console.error('Admin payment notification (course):', adminErr);
+              }
             } else {
               console.warn('Course checkout: no userId for session', session.id);
+              try {
+                const course = await getCourseSetting(courseId);
+                await notifyAdminOfSuccessfulPayment({
+                  session,
+                  productType: 'course',
+                  courseId,
+                  courseTitle: course?.title || courseId,
+                });
+              } catch (adminErr) {
+                console.error('Admin payment notification (course, no user):', adminErr);
+              }
             }
             break;
           }
@@ -409,8 +432,18 @@ app.post('/api/stripe-webhook', async (req, res) => {
                   console.error('Error sending foundation confirmation email:', emailError);
                 }
               }
+              try {
+                await notifyAdminOfSuccessfulPayment({ session, order, productType: 'foundation' });
+              } catch (adminErr) {
+                console.error('Admin payment notification (foundation):', adminErr);
+              }
             } else {
               console.warn('Foundation order not found for session:', session.id);
+              try {
+                await notifyAdminOfSuccessfulPayment({ session, productType: 'foundation' });
+              } catch (adminErr) {
+                console.error('Admin payment notification (foundation, no order):', adminErr);
+              }
             }
           } else if (productType === 'seminar') {
             // Seminar order flow
@@ -451,8 +484,18 @@ app.post('/api/stripe-webhook', async (req, res) => {
                   console.error('Error sending seminar confirmation email:', emailError);
                 }
               }
+              try {
+                await notifyAdminOfSuccessfulPayment({ session, order, productType: 'seminar' });
+              } catch (adminErr) {
+                console.error('Admin payment notification (seminar):', adminErr);
+              }
             } else {
               console.warn('Seminar order not found for session:', session.id);
+              try {
+                await notifyAdminOfSuccessfulPayment({ session, productType: 'seminar' });
+              } catch (adminErr) {
+                console.error('Admin payment notification (seminar, no order):', adminErr);
+              }
             }
           } else {
             // Book order flow
@@ -500,8 +543,18 @@ app.post('/api/stripe-webhook', async (req, res) => {
               } else {
                 console.log('Email already sent for order:', order.id, '- skipping duplicate');
               }
+              try {
+                await notifyAdminOfSuccessfulPayment({ session, order, productType: 'book' });
+              } catch (adminErr) {
+                console.error('Admin payment notification (book):', adminErr);
+              }
             } else {
               console.warn('Order not found for session:', session.id);
+              try {
+                await notifyAdminOfSuccessfulPayment({ session, productType: 'book' });
+              } catch (adminErr) {
+                console.error('Admin payment notification (book, no order):', adminErr);
+              }
             }
           }
         } catch (dbError) {
@@ -688,6 +741,18 @@ app.post('/api/verify-payment', async (req, res) => {
           console.log('Course enrollment created via verify-payment fallback:', userId, courseId);
         }
       }
+      try {
+        const course = await getCourseSetting(courseId);
+        await notifyAdminOfSuccessfulPayment({
+          session,
+          productType: 'course',
+          courseId,
+          courseTitle: course?.title || courseId,
+          userId,
+        });
+      } catch (adminErr) {
+        console.error('Admin payment notification (course verify):', adminErr);
+      }
       return res.json({
         success: true,
         message: 'Course enrollment verified',
@@ -773,6 +838,11 @@ app.post('/api/verify-payment', async (req, res) => {
     if (productType === 'seminar' && !order) {
       const customerEmail = session.customer_email || session.metadata?.customerEmail;
       const customerName = session.customer_details?.name || session.metadata?.customerName || 'there';
+      try {
+        await notifyAdminOfSuccessfulPayment({ session, productType: 'seminar' });
+      } catch (adminErr) {
+        console.error('Admin payment notification (seminar verify, no order):', adminErr);
+      }
       return res.json({
         success: true,
         message: 'Seminar payment verified',
@@ -786,6 +856,11 @@ app.post('/api/verify-payment', async (req, res) => {
     if (order && order.status === 'paid') {
       const customerEmail = session.customer_email || order.customer_email;
       const customerName = order.customer_name || session.customer_details?.name || 'Customer';
+      try {
+        await notifyAdminOfSuccessfulPayment({ session, order, productType });
+      } catch (adminErr) {
+        console.error('Admin payment notification (already processed):', adminErr);
+      }
       return res.json({
         success: true,
         message: 'Order already processed',
@@ -871,6 +946,12 @@ app.post('/api/verify-payment', async (req, res) => {
       emailSent = true;
     } else if (!customerEmail) {
       console.warn('No customer email available to send confirmation email');
+    }
+
+    try {
+      await notifyAdminOfSuccessfulPayment({ session, order, productType });
+    } catch (adminErr) {
+      console.error('Admin payment notification (verify-payment):', adminErr);
     }
 
     return res.json({
@@ -1011,6 +1092,24 @@ app.post('/api/send-payment-email', async (req, res) => {
           }
         } catch (updateError) {
           console.error('Error updating email sent info:', updateError);
+        }
+      }
+
+      if (sessionId) {
+        try {
+          const Stripe = (await import('stripe')).default;
+          const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-10-28.acacia' });
+          const session = await stripe.checkout.sessions.retrieve(sessionId);
+          const pt = productType || session.metadata?.productType || (isFoundation ? 'foundation' : isSeminar ? 'seminar' : isCourse ? 'course' : 'book');
+          await notifyAdminOfSuccessfulPayment({
+            session,
+            order,
+            productType: pt,
+            productName: product,
+            courseTitle: courseTitleFromSession,
+          });
+        } catch (adminErr) {
+          console.error('Admin payment notification (send-payment-email):', adminErr);
         }
       }
     } else if (type === 'failure') {
