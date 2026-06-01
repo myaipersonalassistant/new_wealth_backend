@@ -1,6 +1,7 @@
 import { handleWebhook } from '../server/services/stripeService.js';
 import { sendEmail } from '../server/services/emailService.js';
 import { updateBookOrder, findOrderBySessionId, findOrderByEmail } from '../server/services/firebaseService.js';
+import { notifyAdminOfSuccessfulPayment } from '../server/services/paymentAdminNotifyService.js';
 
 /**
  * Stripe webhook endpoint
@@ -93,8 +94,21 @@ export default async function handler(req, res) {
               console.error('Error sending confirmation email:', emailError);
               // Don't fail the webhook if email fails
             }
+            try {
+              await notifyAdminOfSuccessfulPayment({ session, order, productType: 'book' });
+            } catch (adminErr) {
+              console.error('Admin payment notification:', adminErr);
+            }
           } else {
             console.warn('Order not found for session:', session.id);
+            try {
+              await notifyAdminOfSuccessfulPayment({
+                session,
+                productType: session.metadata?.productType || 'book',
+              });
+            } catch (adminErr) {
+              console.error('Admin payment notification (no order):', adminErr);
+            }
           }
         } catch (dbError) {
           console.error('Error updating order:', dbError);
