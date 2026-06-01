@@ -693,6 +693,98 @@ This is an automated email. Please do not reply directly to this message.
 If you need assistance, contact us at support@buildwealththroughproperty.com`
   }),
 
+  adminPaymentNotification: (data) => {
+    const row = (label, value) =>
+      value
+        ? `<tr><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;width:38%;vertical-align:top;"><strong>${label}</strong></td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;">${value}</td></tr>`
+        : '';
+    const fulfillment = data.fulfillmentNotes
+      ? `<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-left:4px solid #059669;padding:16px 18px;margin:20px 0;border-radius:4px;"><p style="margin:0 0 8px;font-weight:700;color:#065f46;">Fulfillment</p><p style="margin:0;font-size:14px;color:#047857;">${data.fulfillmentNotes}</p></div>`
+      : '';
+    return {
+      subject: data.subject || `[New paid order] ${data.productLabel || 'Order'} — ${data.customerName || 'Customer'}`,
+      html: `
+      <!DOCTYPE html>
+      <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>New payment received</title>
+        </head>
+        <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;line-height:1.5;color:#1f2937;margin:0;padding:0;background:#f3f4f6;">
+          <div style="max-width:640px;margin:0 auto;background:#fff;">
+            <div style="background:linear-gradient(135deg,#1e3a5f,#0f172a);color:#fff;padding:28px 24px;">
+              <p style="margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;opacity:0.85;">Build Wealth Through Property</p>
+              <h1 style="margin:0;font-size:22px;font-weight:700;">New successful payment</h1>
+              <p style="margin:10px 0 0;font-size:14px;opacity:0.9;">You can fulfil this order from the details below — no need to open the admin panel.</p>
+            </div>
+            <div style="padding:28px 24px;">
+              <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;">
+                <tbody>
+                  ${row('Product', data.productName)}
+                  ${row('Order type', data.productLabel)}
+                  ${row('Amount paid', data.amountPaid ? `£${data.amountPaid}` : '')}
+                  ${row('Quantity', data.quantity != null ? String(data.quantity) : '')}
+                  ${row('Unit price', data.unitPrice ? `£${data.unitPrice}` : '')}
+                  ${row('Paid at', data.paidAt)}
+                  ${row('Order ID', data.orderId)}
+                  ${row('Stripe session', data.stripeSessionId)}
+                  ${row('Payment reference', data.transactionId)}
+                </tbody>
+              </table>
+              <h2 style="font-size:16px;margin:28px 0 12px;color:#111827;">Customer</h2>
+              <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;">
+                <tbody>
+                  ${row('Name', data.customerName)}
+                  ${row('Email', data.customerEmail ? `<a href="mailto:${data.customerEmail}" style="color:#d97706;">${data.customerEmail}</a>` : '')}
+                  ${row('Phone', data.customerPhone)}
+                  ${row('Firebase user', data.userId)}
+                </tbody>
+              </table>
+              ${data.shippingBlock ? `
+              <h2 style="font-size:16px;margin:28px 0 12px;color:#111827;">Shipping address</h2>
+              <div style="background:#f9fafb;border:1px solid #e5e7eb;border-left:4px solid #f59e0b;padding:16px 18px;border-radius:4px;font-size:14px;white-space:pre-line;">${data.shippingBlock}</div>
+              ` : ''}
+              ${data.courseBlock ? `
+              <h2 style="font-size:16px;margin:28px 0 12px;color:#111827;">Course access</h2>
+              <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;">
+                <tbody>
+                  ${row('Course', data.courseTitle)}
+                  ${row('Course ID', data.courseId)}
+                </tbody>
+              </table>
+              ` : ''}
+              ${fulfillment}
+              <p style="margin:24px 0 0;font-size:13px;color:#6b7280;">Customer confirmation email is sent automatically. This alert is for your records and fulfilment.</p>
+            </div>
+            <div style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 24px;font-size:12px;color:#6b7280;">
+              Automated admin alert · Build Wealth Through Property
+            </div>
+          </div>
+        </body>
+      </html>
+    `,
+      text: `NEW SUCCESSFUL PAYMENT — Build Wealth Through Property
+
+Product: ${data.productName || ''}
+Type: ${data.productLabel || ''}
+Amount: £${data.amountPaid || '0.00'}
+Quantity: ${data.quantity ?? 1}
+Paid at: ${data.paidAt || ''}
+
+CUSTOMER
+Name: ${data.customerName || ''}
+Email: ${data.customerEmail || ''}
+Phone: ${data.customerPhone || '—'}
+${data.userId ? `User ID: ${data.userId}\n` : ''}
+
+${data.shippingBlock ? `SHIPPING\n${data.shippingBlock.replace(/<br\\/?>/gi, '\n')}\n\n` : ''}${data.courseBlock ? `COURSE: ${data.courseTitle || ''} (${data.courseId || ''})\n\n` : ''}${data.fulfillmentNotes ? `FULFILLMENT: ${data.fulfillmentNotes}\n\n` : ''}ORDER ID: ${data.orderId || '—'}
+Stripe session: ${data.stripeSessionId || '—'}
+Payment ref: ${data.transactionId || '—'}
+`,
+    };
+  },
+
   contactForm: (data) => ({
     subject: `Contact Form Submission from ${data.name}`,
     html: `
@@ -737,7 +829,7 @@ If you need assistance, contact us at support@buildwealththroughproperty.com`
  * @param {string} options.subject - Email subject
  * @param {string} [options.text] - Plain text version
  * @param {string} [options.html] - HTML version
- * @param {string} [options.template] - Template name (welcome, paymentConfirmation, contactForm)
+ * @param {string} [options.template] - Template name (welcome, paymentConfirmation, adminPaymentNotification, contactForm)
  * @param {Object} [options.templateData] - Data for template
  * @returns {Promise<Object>} - Result with messageId
  */
